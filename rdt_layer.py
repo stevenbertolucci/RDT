@@ -32,12 +32,7 @@ class RDTLayer(object):
     dataToSend = ''
     currentIteration = 0                                # Use this for segment 'timeouts'
     # Add items as needed
-<<<<<<< HEAD
     TIMEOUT = 0.5                                       # Timeout
-=======
-    TIMEOUT = 0.5
-    MAX_SEGMENTS = FLOW_CONTROL_WIN_SIZE // DATA_LENGTH  # How many full segments can we send within one window.
->>>>>>> d727ce3a7ccfc4fbbf93fe3470103b02ea3a74f8
 
     # ################################################################################################################ #
     # __init__()                                                                                                       #
@@ -54,19 +49,11 @@ class RDTLayer(object):
         self.lastSegmentReceived = None
         self.sendChannel = None
         self.receiveChannel = None
-<<<<<<< HEAD
         self.expectedSeqNum = 0                             # Sequence number the receiver is expecting
         self.nextSeqNum = 0                                 # Sequence number for sender
         self.lastAckReceived = -1                           #
         self.segmentTimeouts = 0                            # To count timeouts
         self.timeLastSegmentSent = time.time()              # RTT
-=======
-        self.expectedSeqNum = 0                          # Sequence number the receiver is expecting
-        self.nextSeqNum = 0                              # Sequence number for sender
-        self.lastAckReceived = -1
-        self.segmentTimeouts = 0
-        self.timeLastSegmentSent = time.time()
->>>>>>> d727ce3a7ccfc4fbbf93fe3470103b02ea3a74f8
 
     # ################################################################################################################ #
     # setSendChannel()                                                                                                 #
@@ -110,18 +97,8 @@ class RDTLayer(object):
     #                                                                                                                  #
     # ################################################################################################################ #
     def getDataReceived(self):
-<<<<<<< HEAD
         return self.dataReceived
 
-=======
-        # ############################################################################################################ #
-        # Identify the data that has been received...
-        return self.dataReceived
-
-
-        # ############################################################################################################ #
-
->>>>>>> d727ce3a7ccfc4fbbf93fe3470103b02ea3a74f8
     # ################################################################################################################ #
     # processData()                                                                                                    #
     #                                                                                                                  #
@@ -156,7 +133,6 @@ class RDTLayer(object):
         # The seqnum is the sequence number for the segment (in character number, not bytes)
         # ############################################################################################################ #
 
-<<<<<<< HEAD
         #--------------------------------------------------------------------------------------------------------------
         # Citation:
         #       I modeled the implementation of Go-Back-N from this YouTube video that was mentioned in the
@@ -169,16 +145,6 @@ class RDTLayer(object):
         #       The source to this Ed Discussion thread is: https://edstem.org/us/courses/41023/discussion/3322598
         # --------------------------------------------------------------------------------------------------------------
         # If there is still data to send, send only up to 4 characters per packet
-=======
-        # -------------------------------------------------------------------------------------------------------------
-        #   Citations:
-        #          I used the flowchart of the "Example Sequence Diagram" from Exploration: Programming Project Primer:
-        #          Reliable Data Transmission to implement this function. For example, I wasn't sure how to send
-        #          acknowledgment back to the client, so I used the logic from that exploration to decided whether
-        #          to send the packet or retransmit.
-        # -------------------------------------------------------------------------------------------------------------
-
->>>>>>> d727ce3a7ccfc4fbbf93fe3470103b02ea3a74f8
         if self.dataToSend:
             if not self.lastSegmentSent or (time.time() - self.timeLastSegmentSent) >= RDTLayer.TIMEOUT:
                 segment = Segment()
