@@ -1,7 +1,6 @@
 from segment import Segment
 import time
 
-
 # #################################################################################################################### #
 # RDTLayer                                                                                                             #
 #                                                                                                                      #
@@ -33,7 +32,7 @@ class RDTLayer(object):
     dataToSend = ''
     currentIteration = 0                                # Use this for segment 'timeouts'
     # Add items as needed
-    TIMEOUT = 0.5
+    TIMEOUT = 0.5                                       # Timeout
 
     # ################################################################################################################ #
     # __init__()                                                                                                       #
@@ -50,11 +49,11 @@ class RDTLayer(object):
         self.lastSegmentReceived = None
         self.sendChannel = None
         self.receiveChannel = None
-        self.expectedSeqNum = 0  # Sequence number the receiver is expecting
-        self.nextSeqNum = 0  # Sequence number for sender
-        self.lastAckReceived = -1
-        self.segmentTimeouts = 0
-        self.timeLastSegmentSent = time.time()
+        self.expectedSeqNum = 0                             # Sequence number the receiver is expecting
+        self.nextSeqNum = 0                                 # Sequence number for sender
+        self.lastAckReceived = -1                           #
+        self.segmentTimeouts = 0                            # To count timeouts
+        self.timeLastSegmentSent = time.time()              # RTT
 
     # ################################################################################################################ #
     # setSendChannel()                                                                                                 #
@@ -98,12 +97,7 @@ class RDTLayer(object):
     #                                                                                                                  #
     # ################################################################################################################ #
     def getDataReceived(self):
-        # ############################################################################################################ #
-        # Identify the data that has been received...
-
         return self.dataReceived
-
-        # ############################################################################################################ #
 
     # ################################################################################################################ #
     # processData()                                                                                                    #
@@ -139,6 +133,18 @@ class RDTLayer(object):
         # The seqnum is the sequence number for the segment (in character number, not bytes)
         # ############################################################################################################ #
 
+        #--------------------------------------------------------------------------------------------------------------
+        # Citation:
+        #       I modeled the implementation of Go-Back-N from this YouTube video that was mentioned in the
+        #       comment section on Ed Discussion. The source to the YouTube video is:
+        #       https://www.youtube.com/watch?v=NMbMXCbYaX4&ab_channel=EpicNetworksLab
+        #
+        #       Starting at 5:03, he talks about how Go-Back-N works by showing a visual presentation of it. That is
+        #       what I tried to implement here. It is buggy and needs to be completed.
+        #
+        #       The source to this Ed Discussion thread is: https://edstem.org/us/courses/41023/discussion/3322598
+        # --------------------------------------------------------------------------------------------------------------
+        # If there is still data to send, send only up to 4 characters per packet
         if self.dataToSend:
             if not self.lastSegmentSent or (time.time() - self.timeLastSegmentSent) >= RDTLayer.TIMEOUT:
                 segment = Segment()
@@ -158,35 +164,68 @@ class RDTLayer(object):
     # ################################################################################################################ #
     def processReceiveAndSendRespond(self):
 
-        # This call returns a list of incoming segments (see Segment class)...
+        # This call returns a list of incoming segments
         listIncomingSegments = self.receiveChannel.receive()
 
         # ############################################################################################################ #
         # What segments have been received?
         # How will you get them back in order?
         # This is where a majority of your logic will be implemented
+        # ############################################################################################################ #
+
+        # --------------------------------------------------------------------------------------------------------------
+        # Citation:
+        #       I modeled the implementation of Go-Back-N from this YouTube video that was mentioned in the
+        #       comment section on Ed Discussion. The source to the YouTube video is:
+        #       https://www.youtube.com/watch?v=NMbMXCbYaX4&ab_channel=EpicNetworksLab
+        #
+        #       Starting at 5:03, he talks about how Go-Back-N works by showing a visual presentation of it. That is
+        #       what I tried to implement here. It is buggy and needs to be completed.
+        #
+        #       The source to this Ed Discussion thread is: https://edstem.org/us/courses/41023/discussion/3322598
+        # --------------------------------------------------------------------------------------------------------------
 
         for segment in listIncomingSegments:
-            if segment.acknum != -1:  # It's an acknowledgement
-                if segment.acknum == self.nextSeqNum:
-                    self.lastAckReceived = segment.acknum
+            # Check to see if the packet has been acknowledged
+            if segment.acknum != -1:
+                # If the acknum is in the window, then slide the window and update data to send.
+                # This simple example assumes that the window size is represented as an integer.
+                # The actual implementation should consider the exact window size and manage accordingly.
+                while self.nextSeqNum <= segment.acknum and len(self.dataToSend) > 0:
                     self.dataToSend = self.dataToSend[RDTLayer.FLOW_CONTROL_WIN_SIZE:]
-                    self.nextSeqNum = 1 - self.nextSeqNum  # Toggle sequence number
+                    self.nextSeqNum += 1
 
-            else:  # It's a data segment
+            # It's a data segment
+            else:
+                # Expected segment received
                 if segment.seqnum == self.expectedSeqNum and segment.checkChecksum():
                     self.dataReceived += segment.payload
                     ackSegment = Segment()
                     ackSegment.setAck(segment.seqnum)
                     self.sendChannel.send(ackSegment)
-                    self.expectedSeqNum = 1 - self.expectedSeqNum  # Toggle sequence number
-                elif self.lastSegmentReceived:  # Resend the last acknowledgement
+                    self.expectedSeqNum += 1
+
+                # Out of sequence but we still send an ACK for the highest in-order segment received
+                else:
                     ackSegment = Segment()
-                    ackSegment.setAck(self.lastSegmentReceived.seqnum)
-                    self.sendChannel.send(ackSegment)
+                    if self.lastSegmentReceived:
+                        ackSegment.setAck(self.lastSegmentReceived.seqnum)
+                        self.sendChannel.send(ackSegment)
 
             self.lastSegmentReceived = segment
-
+    # -----------------------------------------------------------------------------------------------------------------
+    # Citation:
+    #       According to Ed Discussion, I had to create countSegmentTimeouts() function because when the server have
+    #       received all the data, the output required me to show the number of segment timeouts. Originally, my program
+    #       had the server receiving all the data and the program output the statistics for the packets that had been
+    #       sent to the server from the client. However I had an error regarding not having a countSegmentTimeouts()
+    #       function. Source: https://edstem.org/us/courses/41023/discussion/3308502
+    #
+    #       Also, when I added the function, I was still getting an error. I found this article that had great
+    #       explanation how to combat errors when my rdt_main program from displaying the correct segment timeouts. The
+    #       error then went away.
+    #       Source: https://www.freecodecamp.org/news/python-property-decorator/#:~:text=The%20%40property%20is%20a%20built,of%20the%20use%20of%20%40property!
+    # -----------------------------------------------------------------------------------------------------------------
     @property
     def countSegmentTimeouts(self):
         return self.segmentTimeouts
