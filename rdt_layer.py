@@ -32,7 +32,7 @@ class RDTLayer(object):
     dataToSend = ''
     currentIteration = 0                                # Use this for segment 'timeouts'
     # Add items as needed
-    TIMEOUT = 0.5                                       # Timeout
+    TIMEOUT = 1                                       # Timeout
 
     # ################################################################################################################ #
     # __init__()                                                                                                       #
@@ -133,7 +133,7 @@ class RDTLayer(object):
         # The seqnum is the sequence number for the segment (in character number, not bytes)
         # ############################################################################################################ #
 
-        #--------------------------------------------------------------------------------------------------------------
+        # --------------------------------------------------------------------------------------------------------------
         # Citation:
         #       I modeled the implementation of Go-Back-N from this YouTube video that was mentioned in the
         #       comment section on Ed Discussion. The source to the YouTube video is:
@@ -145,7 +145,8 @@ class RDTLayer(object):
         #       The source to this Ed Discussion thread is: https://edstem.org/us/courses/41023/discussion/3322598
         # --------------------------------------------------------------------------------------------------------------
         # If there is still data to send, send only up to 4 characters per packet
-        if self.dataToSend:
+        packets_to_send = 4
+        while self.dataToSend and packets_to_send:
             if not self.lastSegmentSent or (time.time() - self.timeLastSegmentSent) >= RDTLayer.TIMEOUT:
                 segment = Segment()
                 payload = self.dataToSend[:RDTLayer.FLOW_CONTROL_WIN_SIZE]
@@ -154,6 +155,11 @@ class RDTLayer(object):
                 self.lastSegmentSent = segment
                 self.timeLastSegmentSent = time.time()
                 print(f"Sending segment: seq: {segment.seqnum}, ack: {segment.acknum}, data: {self.getDataReceived()}")
+
+                # Slide the send window
+                self.dataToSend = self.dataToSend[RDTLayer.FLOW_CONTROL_WIN_SIZE:]
+                self.nextSeqNum += 1
+                packets_to_send -= 1
 
     # ################################################################################################################ #
     # processReceive()                                                                                                 #
@@ -206,7 +212,7 @@ class RDTLayer(object):
                     self.sendChannel.send(ackSegment)
                     self.expectedSeqNum += 1
 
-                # Out of sequence but we still send an ACK for the highest in-order segment received
+                # Out of sequence, but we still send an ACK for the highest in-order segment received
                 else:
                     ackSegment = Segment()
                     if self.lastSegmentReceived:
