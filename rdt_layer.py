@@ -153,6 +153,7 @@ class RDTLayer(object):
                 self.sendChannel.send(segment)
                 self.lastSegmentSent = segment
                 self.timeLastSegmentSent = time.time()
+                print(f"Sending segment: seq: {segment.seqnum}, ack: {segment.acknum}, data: {self.getDataReceived()}")
 
     # ################################################################################################################ #
     # processReceive()                                                                                                 #
@@ -213,6 +214,7 @@ class RDTLayer(object):
                         self.sendChannel.send(ackSegment)
 
             self.lastSegmentReceived = segment
+            print(f"Sending ack: seq: {segment.seqnum}, ack: {segment.acknum}")
     # -----------------------------------------------------------------------------------------------------------------
     # Citation:
     #       According to Ed Discussion, I had to create countSegmentTimeouts() function because when the server have
